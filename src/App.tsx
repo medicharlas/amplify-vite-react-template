@@ -19,8 +19,8 @@ function App() {
 
   return (
     <main>
-      
-       <h1>Hello.. More interesting contents would be uploaded to this personal blog soon.</h1>
+
+       <h1>Helloo.. More interesting contents would be uploaded to this personal blog soon.</h1>
 
         {/*
         <h1>My todos</h1>
