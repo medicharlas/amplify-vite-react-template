@@ -19,11 +19,8 @@ function App() {
 
   return (
     <main>
-
-       <h1>Helloo.. More interesting contents would be uploaded to this personal blog soon.</h1>
-
-        {/*
-        <h1>My todos</h1>
+      <h1>Helloo.. More interesting contents would be uploaded to this personal blog soon.</h1>
+      <h1>My todos</h1>
       <button onClick={createTodo}>+ new</button>
       <ul>
         {todos.map((todo) => (
@@ -37,8 +34,6 @@ function App() {
           Review next step of this tutorial.
         </a>
       </div>
-      */}
-
     </main>
   );
 }
