@@ -1,8 +1,11 @@
-function App() {
 
+function App() {
+    function funFactClick() {
+        alert("Helloo.. fun facts to come soon");
+    }
   return (
       <main>
-        <h1>Helloo.. More  contents to be uploaded to this blog soon.</h1>
+              <button onClick={funFactClick}>FunFacts</button>
 
       </main>
   );
