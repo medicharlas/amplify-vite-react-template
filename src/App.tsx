@@ -1,11 +1,11 @@
 
 function App() {
     function funFactClick() {
-        alert("Helloo.. fun facts to come soon");
+        alert("Helloo.. you are awesome and I believe in you..");
     }
   return (
       <main>
-              <button onClick={funFactClick}>FunFacts</button>
+              <button onClick={funFactClick}>Facts</button>
 
       </main>
   );
