@@ -1,7 +1,7 @@
 
 function App() {
     function funFactClick() {
-        alert("Helloo.. you are awesome and I believe in you..");
+        alert("No matter what happens in life, be good to people. Being good is wonderful legacy to leave behind..");
     }
   return (
       <main>
