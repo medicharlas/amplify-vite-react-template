@@ -4,32 +4,4 @@
   <title>GenAI App</title>
   <body><h2>Get answers to your question.</h2>
 </body>
-  <!--
-  <style>
-    body { font-family: sans-serif; margin: 40px; }
-    textarea { width: 100%; height: 100px; }
-  </style>
-</head>
-<body>
-<h2>Get answers to your question.</h2>
-<textarea id="prompt" placeholder="Type your prompt..."></textarea><br><br>
-<button onclick="generate()">Generate</button>
-<h3>Output:</h3>
-<textarea id="output" readonly></textarea>
-
-<script>
-  async function generate() {
-    const prompt = document.getElementById('prompt').value;
-    const response = await fetch("https://l93d45v2bl.execute-api.us-east-1.amazonaws.com/prod/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt })
-    });
-    const data = await response.json();
-    document.getElementById('output').value = data.output;
-  }
-</script>
-
-</body>
--->
 </html>
