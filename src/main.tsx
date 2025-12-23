@@ -2,9 +2,10 @@ import React, { useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 
-const API_URL = "https://l93d45v2bl.execute-api.us-east-1.amazonaws.com/prod/"; // keep as-is
+// Your API Gateway endpoint (prefer WITHOUT trailing slash)
+const API_URL = "https://l93d45v2bl.execute-api.us-east-1.amazonaws.com/prod/";
 
-type CriterionInput = { criterion: string; weight: number };
+type Criterion = { criterion: string; weight?: number };
 
 type DecisionOutput = {
     recommendation: "A" | "B" | "Tie";
@@ -16,6 +17,7 @@ type DecisionOutput = {
         A_score: number;
         B_score: number;
         why: string;
+        B_score?: number;
     }>;
     tradeoffs: string[];
     risks: { A: string[]; B: string[] };
@@ -23,8 +25,7 @@ type DecisionOutput = {
     follow_up_questions: string[];
 };
 
-// Some APIs return { output: DecisionOutput }, others return DecisionOutput directly.
-type ApiResponse = { output?: DecisionOutput; error?: string; message?: string } & Record<string, any>;
+const prettyJson = (obj: unknown) => JSON.stringify(obj, null, 2);
 
 const App: React.FC = () => {
     const [decision, setDecision] = useState("");
@@ -32,47 +33,40 @@ const App: React.FC = () => {
     const [optionB, setOptionB] = useState("");
     const [userContext, setUserContext] = useState("");
 
-    const [criteriaEnabled, setCriteriaEnabled] = useState(false);
-    const [criteria, setCriteria] = useState<CriterionInput[]>([
-        { criterion: "Cost", weight: 25 },
-        { criterion: "Long-term growth", weight: 25 },
-        { criterion: "Risk", weight: 25 },
-        { criterion: "Lifestyle fit", weight: 25 },
-    ]);
+    // Optional criteria input as simple text lines: "Cost: 30"
+    const [criteriaText, setCriteriaText] = useState("");
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string>("");
+    const [rawResponse, setRawResponse] = useState<string>("");
     const [result, setResult] = useState<DecisionOutput | null>(null);
-    const [rawJson, setRawJson] = useState<string>("");
 
-    const weightsSum = useMemo(
-        () => criteria.reduce((sum, c) => sum + (Number.isFinite(c.weight) ? c.weight : 0), 0),
-        [criteria]
-    );
+    const parsedCriteria: Criterion[] | undefined = useMemo(() => {
+        const lines = criteriaText
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean);
 
-    const updateCriterion = (idx: number, patch: Partial<CriterionInput>) => {
-        setCriteria((prev) => prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
-    };
+        if (lines.length === 0) return undefined;
 
-    const addCriterion = () => setCriteria((prev) => [...prev, { criterion: "", weight: 10 }]);
-    const removeCriterion = (idx: number) => setCriteria((prev) => prev.filter((_, i) => i !== idx));
-
-    // Helper: safe JSON parsing
-    const parseJsonSafely = async (res: Response) => {
-        const text = await res.text();
-        if (!text) return { text: "", json: null as any };
-
-        try {
-            return { text, json: JSON.parse(text) };
-        } catch {
-            return { text, json: null as any };
+        const criteria: Criterion[] = [];
+        for (const line of lines) {
+            // Accept formats:
+            // "Cost: 30" or "Cost - 30" or "Cost"
+            const m = line.match(/^(.+?)\s*[:\-]\s*(\d{1,3})\s*$/);
+            if (m) {
+                criteria.push({ criterion: m[1].trim(), weight: Number(m[2]) });
+            } else {
+                criteria.push({ criterion: line });
+            }
         }
-    };
+        return criteria;
+    }, [criteriaText]);
 
     const submit = async () => {
         setError("");
+        setRawResponse("");
         setResult(null);
-        setRawJson("");
 
         const d = decision.trim();
         const a = optionA.trim();
@@ -83,103 +77,70 @@ const App: React.FC = () => {
             return;
         }
 
-        const payload: any = {
-            decision: d,
-            optionA: a,
-            optionB: b,
-            userContext: userContext.trim(),
-        };
-
-        if (criteriaEnabled) {
-            payload.criteria = criteria
-                .filter((c) => c.criterion.trim())
-                .map((c) => ({ criterion: c.criterion.trim(), weight: Number(c.weight) }));
-        }
-
         setLoading(true);
-
         try {
-            const res = await fetch(API_URL, {
+            const payload = {
+                decision: d,
+                optionA: a,
+                optionB: b,
+                criteria: parsedCriteria, // optional
+                userContext: userContext.trim(), // optional
+            };
+
+            const resp = await fetch(API_URL, {
                 method: "POST",
-                mode: "cors",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
 
-            const { text, json } = await parseJsonSafely(res);
+            const text = await resp.text(); // read as text first for better debugging
+            setRawResponse(text);
 
-            if (!res.ok) {
-                // Show the most useful error we can
-                const msg =
-                    (json && (json.error || json.message)) ||
-                    text ||
-                    `HTTP ${res.status} ${res.statusText}`;
-                throw new Error(msg);
+            if (!resp.ok) {
+                // Your Lambda returns JSON: { error: "...", details?: "..." }
+                try {
+                    const j = JSON.parse(text);
+                    throw new Error(j.error || `HTTP ${resp.status}`);
+                } catch {
+                    throw new Error(`HTTP ${resp.status}: ${text}`);
+                }
             }
 
-            // If backend returned non-JSON but status 200, still fail clearly
-            if (!json) {
-                throw new Error(
-                    `API returned non-JSON response (status 200). Response was: ${text.slice(0, 300)}`
-                );
+            const json = JSON.parse(text);
+            // Your lambda returns: { output: { ...schema... } }
+            const out = json?.output;
+            if (!out) {
+                setError("API returned success, but missing 'output'. Check Lambda response shape.");
+                return;
             }
-
-            const data = json as ApiResponse;
-
-            const out: DecisionOutput | undefined =
-                data.output ?? (data as any); // accept direct DecisionOutput
-
-            // Basic shape check
-            if (!out || !out.recommendation || !out.scores) {
-                throw new Error(
-                    "API response JSON did not match expected format. Expected { output: DecisionOutput } or DecisionOutput."
-                );
-            }
-
-            setResult(out);
-            setRawJson(JSON.stringify(out, null, 2));
+            setResult(out as DecisionOutput);
         } catch (e: any) {
-            // Common CORS/network failures show up here with TypeError "Failed to fetch"
-            const msg = e?.message || "Request failed";
-            if (msg.toLowerCase().includes("failed to fetch")) {
-                setError(
-                    "Network/CORS error: the browser could not call the API. Check API Gateway CORS (OPTIONS) and Access-Control-Allow-Origin headers."
-                );
-            } else {
-                setError(msg);
-            }
+            setError(e?.message || "Unknown error");
         } finally {
             setLoading(false);
         }
     };
 
-    const copyJson = async () => {
-        try {
-            if (!rawJson) return;
-            await navigator.clipboard.writeText(rawJson);
-        } catch {
-            setError("Could not copy to clipboard (browser permission issue).");
-        }
+    const copy = async () => {
+        const toCopy = result ? prettyJson(result) : rawResponse || "";
+        await navigator.clipboard.writeText(toCopy);
     };
 
     return (
-        <div style={{ fontFamily: "system-ui, sans-serif", margin: 24, maxWidth: 980 }}>
-            <h2 style={{ marginBottom: 4 }}>Decision Coach</h2>
-            <p style={{ marginTop: 0, opacity: 0.75 }}>
-                Compare Option A vs Option B with weighted criteria and clear tradeoffs.
+        <div style={{ fontFamily: "system-ui, sans-serif", margin: 32, maxWidth: 980 }}>
+            <h2 style={{ marginBottom: 8 }}>Decision Coach Bot</h2>
+            <p style={{ marginTop: 0, opacity: 0.8 }}>
+                Compare Option A vs Option B with weighted criteria and a clear recommendation.
             </p>
 
             <div style={{ display: "grid", gap: 12 }}>
                 <div>
-                    <label style={{ fontWeight: 600 }}>Decision</label>
+                    <label style={{ fontWeight: 600 }}>Decision (what are you deciding?)</label>
                     <input
                         value={decision}
                         onChange={(e) => setDecision(e.target.value)}
-                        placeholder="e.g., Should I move to Seattle or stay in Bellevue?"
-                        style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #ddd" }}
+                        placeholder='e.g., "Choose between two job offers"'
+                        style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
                     />
                 </div>
 
@@ -189,8 +150,8 @@ const App: React.FC = () => {
                         <textarea
                             value={optionA}
                             onChange={(e) => setOptionA(e.target.value)}
-                            placeholder="Describe Option A"
-                            style={{ width: "100%", height: 90, padding: 10, borderRadius: 8, border: "1px solid #ddd" }}
+                            placeholder="Describe Option A..."
+                            style={{ width: "100%", height: 110, padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
                         />
                     </div>
                     <div>
@@ -198,80 +159,40 @@ const App: React.FC = () => {
                         <textarea
                             value={optionB}
                             onChange={(e) => setOptionB(e.target.value)}
-                            placeholder="Describe Option B"
-                            style={{ width: "100%", height: 90, padding: 10, borderRadius: 8, border: "1px solid #ddd" }}
+                            placeholder="Describe Option B..."
+                            style={{ width: "100%", height: 110, padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
                         />
                     </div>
                 </div>
 
-                <div>
-                    <label style={{ fontWeight: 600 }}>Your context (optional)</label>
-                    <textarea
-                        value={userContext}
-                        onChange={(e) => setUserContext(e.target.value)}
-                        placeholder="Constraints, priorities, timeline, budget, family, commute, etc."
-                        style={{ width: "100%", height: 90, padding: 10, borderRadius: 8, border: "1px solid #ddd" }}
-                    />
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <input
-                        type="checkbox"
-                        checked={criteriaEnabled}
-                        onChange={(e) => setCriteriaEnabled(e.target.checked)}
-                    />
-                    <span style={{ fontWeight: 600 }}>Provide my own criteria + weights</span>
-                    {criteriaEnabled && (
-                        <span style={{ opacity: 0.7 }}>(weights sum: {weightsSum} — ideally ~100)</span>
-                    )}
-                </div>
-
-                {criteriaEnabled && (
-                    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 80px", gap: 8, fontWeight: 700 }}>
-                            <div>Criterion</div>
-                            <div>Weight</div>
-                            <div />
-                        </div>
-
-                        {criteria.map((c, idx) => (
-                            <div
-                                key={idx}
-                                style={{ display: "grid", gridTemplateColumns: "2fr 1fr 80px", gap: 8, marginTop: 8 }}
-                            >
-                                <input
-                                    value={c.criterion}
-                                    onChange={(e) => updateCriterion(idx, { criterion: e.target.value })}
-                                    placeholder="e.g., Cost"
-                                    style={{ padding: 10, borderRadius: 8, border: "1px solid #ddd" }}
-                                />
-                                <input
-                                    type="number"
-                                    value={c.weight}
-                                    onChange={(e) => updateCriterion(idx, { weight: Number(e.target.value) })}
-                                    style={{ padding: 10, borderRadius: 8, border: "1px solid #ddd" }}
-                                />
-                                <button
-                                    onClick={() => removeCriterion(idx)}
-                                    style={{ borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer" }}
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        ))}
-
-                        <div style={{ marginTop: 10 }}>
-                            <button
-                                onClick={addCriterion}
-                                style={{ borderRadius: 8, border: "1px solid #ddd", background: "white", padding: "8px 10px", cursor: "pointer" }}
-                            >
-                                + Add criterion
-                            </button>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                        <label style={{ fontWeight: 600 }}>
+                            Criteria (optional, one per line — you can include weights)
+                        </label>
+                        <textarea
+                            value={criteriaText}
+                            onChange={(e) => setCriteriaText(e.target.value)}
+                            placeholder={`Example:\nCost: 25\nGrowth: 25\nWork-life balance: 20\nCommute: 15\nRisk: 15`}
+                            style={{ width: "100%", height: 140, padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
+                        />
+                        <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>
+                            If you leave this blank, the bot will infer 5–8 criteria automatically.
                         </div>
                     </div>
-                )}
 
-                <div style={{ display: "flex", gap: 10 }}>
+                    <div>
+                        <label style={{ fontWeight: 600 }}>User context (optional)</label>
+                        <textarea
+                            value={userContext}
+                            onChange={(e) => setUserContext(e.target.value)}
+                            placeholder="Anything important about you or constraints (budget, timeline, family, goals, etc.)"
+                            style={{ width: "100%", height: 140, padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
+                        />
+                    </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <button
                         onClick={submit}
                         disabled={loading}
@@ -279,114 +200,83 @@ const App: React.FC = () => {
                             padding: "10px 14px",
                             borderRadius: 10,
                             border: "none",
-                            background: "#4f46e5",
+                            background: "#111",
                             color: "white",
-                            cursor: "pointer",
-                            opacity: loading ? 0.7 : 1,
+                            cursor: loading ? "not-allowed" : "pointer",
                         }}
                     >
-                        {loading ? "Analyzing..." : "Get recommendation"}
+                        {loading ? "Analyzing..." : "Get Recommendation"}
                     </button>
 
-                    {rawJson && (
-                        <button
-                            onClick={copyJson}
-                            style={{
-                                padding: "10px 14px",
-                                borderRadius: 10,
-                                border: "1px solid #ddd",
-                                background: "white",
-                                cursor: "pointer",
-                            }}
-                        >
-                            Copy JSON
-                        </button>
-                    )}
+                    <button
+                        onClick={copy}
+                        disabled={!rawResponse && !result}
+                        style={{
+                            padding: "10px 14px",
+                            borderRadius: 10,
+                            border: "1px solid #ccc",
+                            background: "white",
+                            cursor: !rawResponse && !result ? "not-allowed" : "pointer",
+                        }}
+                    >
+                        Copy Output
+                    </button>
+
+                    {error ? <span style={{ color: "crimson" }}>{error}</span> : null}
                 </div>
 
-                {error && (
-                    <div style={{ padding: 12, borderRadius: 10, background: "#fee2e2", color: "#7f1d1d" }}>
-                        {error}
+                <hr style={{ margin: "18px 0" }} />
+
+                <h3 style={{ margin: 0 }}>Result</h3>
+
+                {result ? (
+                    <div style={{ display: "grid", gap: 12 }}>
+                        <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 10 }}>
+                            <div style={{ fontWeight: 700, fontSize: 18 }}>
+                                Recommendation: {result.recommendation}
+                            </div>
+                            <div style={{ opacity: 0.85 }}>{result.one_line_summary}</div>
+                            <div style={{ marginTop: 8, opacity: 0.85 }}>
+                                Scores — A: {result.scores?.A} | B: {result.scores?.B}
+                            </div>
+                        </div>
+
+                        <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 10 }}>
+                            <div style={{ fontWeight: 700, marginBottom: 8 }}>Score breakdown</div>
+                            <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{prettyJson(result.score_breakdown)}</pre>
+                        </div>
+
+                        <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 10 }}>
+                            <div style={{ fontWeight: 700, marginBottom: 8 }}>Tradeoffs & risks</div>
+                            <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+                {prettyJson({ tradeoffs: result.tradeoffs, risks: result.risks })}
+              </pre>
+                        </div>
+
+                        <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 10 }}>
+                            <div style={{ fontWeight: 700, marginBottom: 8 }}>What would change my mind</div>
+                            <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{prettyJson(result.what_would_change_my_mind)}</pre>
+                        </div>
+
+                        <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 10 }}>
+                            <div style={{ fontWeight: 700, marginBottom: 8 }}>Follow-up questions</div>
+                            <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{prettyJson(result.follow_up_questions)}</pre>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ padding: 12, border: "1px dashed #bbb", borderRadius: 10, opacity: 0.85 }}>
+                        No result yet. Fill in Decision + Option A + Option B and click “Get Recommendation”.
                     </div>
                 )}
 
-                {result && (
-                    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 14 }}>
-                        <h3 style={{ marginTop: 0 }}>
-                            Recommendation: <span style={{ color: "#4f46e5" }}>{result.recommendation}</span>
-                        </h3>
-                        <p style={{ marginTop: 0, opacity: 0.9 }}>{result.one_line_summary}</p>
-
-                        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                            <div style={{ padding: 10, borderRadius: 10, border: "1px solid #eee" }}>
-                                <div style={{ fontWeight: 700 }}>Score A</div>
-                                <div style={{ fontSize: 22 }}>{result.scores?.A ?? "-"}</div>
-                            </div>
-                            <div style={{ padding: 10, borderRadius: 10, border: "1px solid #eee" }}>
-                                <div style={{ fontWeight: 700 }}>Score B</div>
-                                <div style={{ fontSize: 22 }}>{result.scores?.B ?? "-"}</div>
-                            </div>
-                        </div>
-
-                        <h4>Score breakdown</h4>
-                        <div style={{ overflowX: "auto" }}>
-                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                <thead>
-                                <tr>
-                                    <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: 8 }}>Criterion</th>
-                                    <th style={{ textAlign: "right", borderBottom: "1px solid #eee", padding: 8 }}>Weight</th>
-                                    <th style={{ textAlign: "right", borderBottom: "1px solid #eee", padding: 8 }}>A</th>
-                                    <th style={{ textAlign: "right", borderBottom: "1px solid #eee", padding: 8 }}>B</th>
-                                    <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: 8 }}>Why</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {result.score_breakdown?.map((row, i) => (
-                                    <tr key={i}>
-                                        <td style={{ borderBottom: "1px solid #f3f4f6", padding: 8 }}>{row.criterion}</td>
-                                        <td style={{ borderBottom: "1px solid #f3f4f6", padding: 8, textAlign: "right" }}>{row.weight}</td>
-                                        <td style={{ borderBottom: "1px solid #f3f4f6", padding: 8, textAlign: "right" }}>{row.A_score}</td>
-                                        <td style={{ borderBottom: "1px solid #f3f4f6", padding: 8, textAlign: "right" }}>{row.B_score}</td>
-                                        <td style={{ borderBottom: "1px solid #f3f4f6", padding: 8 }}>{row.why}</td>
-                                    </tr>
-                                ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <h4>Tradeoffs</h4>
-                        <ul>{result.tradeoffs?.map((t, i) => <li key={i}>{t}</li>)}</ul>
-
-                        <h4>Risks</h4>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            <div>
-                                <div style={{ fontWeight: 700 }}>Option A</div>
-                                <ul>{result.risks?.A?.map((r, i) => <li key={i}>{r}</li>)}</ul>
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 700 }}>Option B</div>
-                                <ul>{result.risks?.B?.map((r, i) => <li key={i}>{r}</li>)}</ul>
-                            </div>
-                        </div>
-
-                        <h4>What would change my mind</h4>
-                        <ul>{result.what_would_change_my_mind?.map((x, i) => <li key={i}>{x}</li>)}</ul>
-
-                        <h4>Follow-up questions</h4>
-                        <ul>{result.follow_up_questions?.map((q, i) => <li key={i}>{q}</li>)}</ul>
-
-                        <details style={{ marginTop: 10 }}>
-                            <summary style={{ cursor: "pointer" }}>Raw JSON</summary>
-                            <pre style={{ whiteSpace: "pre-wrap" }}>{rawJson}</pre>
-                        </details>
-                    </div>
-                )}
+                <details style={{ marginTop: 10 }}>
+                    <summary style={{ cursor: "pointer" }}>Debug: Raw API response</summary>
+                    <pre style={{ whiteSpace: "pre-wrap" }}>{rawResponse || "(empty)"}</pre>
+                </details>
             </div>
         </div>
     );
 };
 
-const rootEl = document.getElementById("root");
-if (!rootEl) throw new Error("Root element #root not found");
-const root = ReactDOM.createRoot(rootEl);
+const root = ReactDOM.createRoot(document.getElementById("root")!);
 root.render(<App />);
