@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 
-const API_URL = "https://l93d45v2bl.execute-api.us-east-1.amazonaws.com/prod/";
+const API_URL = "https://l93d45v2bl.execute-api.us-east-1.amazonaws.com/prod/"; // keep as-is
 
 type CriterionInput = { criterion: string; weight: number };
 
@@ -22,6 +22,9 @@ type DecisionOutput = {
     what_would_change_my_mind: string[];
     follow_up_questions: string[];
 };
+
+// Some APIs return { output: DecisionOutput }, others return DecisionOutput directly.
+type ApiResponse = { output?: DecisionOutput; error?: string; message?: string } & Record<string, any>;
 
 const App: React.FC = () => {
     const [decision, setDecision] = useState("");
@@ -54,6 +57,18 @@ const App: React.FC = () => {
     const addCriterion = () => setCriteria((prev) => [...prev, { criterion: "", weight: 10 }]);
     const removeCriterion = (idx: number) => setCriteria((prev) => prev.filter((_, i) => i !== idx));
 
+    // Helper: safe JSON parsing
+    const parseJsonSafely = async (res: Response) => {
+        const text = await res.text();
+        if (!text) return { text: "", json: null as any };
+
+        try {
+            return { text, json: JSON.parse(text) };
+        } catch {
+            return { text, json: null as any };
+        }
+    };
+
     const submit = async () => {
         setError("");
         setResult(null);
@@ -82,32 +97,72 @@ const App: React.FC = () => {
         }
 
         setLoading(true);
+
         try {
             const res = await fetch(API_URL, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                mode: "cors",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
                 body: JSON.stringify(payload),
             });
 
-            const data = await res.json();
+            const { text, json } = await parseJsonSafely(res);
 
             if (!res.ok) {
-                throw new Error(data?.error || `HTTP ${res.status}`);
+                // Show the most useful error we can
+                const msg =
+                    (json && (json.error || json.message)) ||
+                    text ||
+                    `HTTP ${res.status} ${res.statusText}`;
+                throw new Error(msg);
             }
 
-            const out = data?.output as DecisionOutput;
+            // If backend returned non-JSON but status 200, still fail clearly
+            if (!json) {
+                throw new Error(
+                    `API returned non-JSON response (status 200). Response was: ${text.slice(0, 300)}`
+                );
+            }
+
+            const data = json as ApiResponse;
+
+            const out: DecisionOutput | undefined =
+                data.output ?? (data as any); // accept direct DecisionOutput
+
+            // Basic shape check
+            if (!out || !out.recommendation || !out.scores) {
+                throw new Error(
+                    "API response JSON did not match expected format. Expected { output: DecisionOutput } or DecisionOutput."
+                );
+            }
+
             setResult(out);
             setRawJson(JSON.stringify(out, null, 2));
         } catch (e: any) {
-            setError(e?.message || "Request failed");
+            // Common CORS/network failures show up here with TypeError "Failed to fetch"
+            const msg = e?.message || "Request failed";
+            if (msg.toLowerCase().includes("failed to fetch")) {
+                setError(
+                    "Network/CORS error: the browser could not call the API. Check API Gateway CORS (OPTIONS) and Access-Control-Allow-Origin headers."
+                );
+            } else {
+                setError(msg);
+            }
         } finally {
             setLoading(false);
         }
     };
 
     const copyJson = async () => {
-        if (!rawJson) return;
-        await navigator.clipboard.writeText(rawJson);
+        try {
+            if (!rawJson) return;
+            await navigator.clipboard.writeText(rawJson);
+        } catch {
+            setError("Could not copy to clipboard (browser permission issue).");
+        }
     };
 
     return (
@@ -167,9 +222,7 @@ const App: React.FC = () => {
                     />
                     <span style={{ fontWeight: 600 }}>Provide my own criteria + weights</span>
                     {criteriaEnabled && (
-                        <span style={{ opacity: 0.7 }}>
-              (weights sum: {weightsSum} — ideally ~100)
-            </span>
+                        <span style={{ opacity: 0.7 }}>(weights sum: {weightsSum} — ideally ~100)</span>
                     )}
                 </div>
 
@@ -182,7 +235,10 @@ const App: React.FC = () => {
                         </div>
 
                         {criteria.map((c, idx) => (
-                            <div key={idx} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 80px", gap: 8, marginTop: 8 }}>
+                            <div
+                                key={idx}
+                                style={{ display: "grid", gridTemplateColumns: "2fr 1fr 80px", gap: 8, marginTop: 8 }}
+                            >
                                 <input
                                     value={c.criterion}
                                     onChange={(e) => updateCriterion(idx, { criterion: e.target.value })}
@@ -299,9 +355,7 @@ const App: React.FC = () => {
                         </div>
 
                         <h4>Tradeoffs</h4>
-                        <ul>
-                            {result.tradeoffs?.map((t, i) => <li key={i}>{t}</li>)}
-                        </ul>
+                        <ul>{result.tradeoffs?.map((t, i) => <li key={i}>{t}</li>)}</ul>
 
                         <h4>Risks</h4>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -316,14 +370,10 @@ const App: React.FC = () => {
                         </div>
 
                         <h4>What would change my mind</h4>
-                        <ul>
-                            {result.what_would_change_my_mind?.map((x, i) => <li key={i}>{x}</li>)}
-                        </ul>
+                        <ul>{result.what_would_change_my_mind?.map((x, i) => <li key={i}>{x}</li>)}</ul>
 
                         <h4>Follow-up questions</h4>
-                        <ul>
-                            {result.follow_up_questions?.map((q, i) => <li key={i}>{q}</li>)}
-                        </ul>
+                        <ul>{result.follow_up_questions?.map((q, i) => <li key={i}>{q}</li>)}</ul>
 
                         <details style={{ marginTop: 10 }}>
                             <summary style={{ cursor: "pointer" }}>Raw JSON</summary>
@@ -336,5 +386,7 @@ const App: React.FC = () => {
     );
 };
 
-const root = ReactDOM.createRoot(document.getElementById("root")!);
+const rootEl = document.getElementById("root");
+if (!rootEl) throw new Error("Root element #root not found");
+const root = ReactDOM.createRoot(rootEl);
 root.render(<App />);
