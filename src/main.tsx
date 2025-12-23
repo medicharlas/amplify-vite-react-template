@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 
-const API_URL = "https://l93d45v2bl.execute-api.us-east-1.amazonaws.com/prod";
+const API_URL = "https://l93d45v2bl.execute-api.us-east-1.amazonaws.com/prod/";
 
 type CriterionInput = { criterion: string; weight: number };
 
