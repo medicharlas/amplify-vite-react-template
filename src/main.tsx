@@ -1,10 +1,10 @@
-import ReactDOM from "react-dom/client";
 import { useMemo, useState } from "react";
+import { createRoot } from "react-dom/client";
 import "./index.css";
 
 const API_URL = "https://l93d45v2bl.execute-api.us-east-1.amazonaws.com/prod/";
 
-type DecisionOutput = {
+type DecisionResponse = {
     recommendation: "A" | "B" | "Tie";
     one_line_summary: string;
     scores: { A: number; B: number };
@@ -26,180 +26,183 @@ function App() {
     const [optionA, setOptionA] = useState("");
     const [optionB, setOptionB] = useState("");
     const [userContext, setUserContext] = useState("");
-
     const [loading, setLoading] = useState(false);
+
+    const [rawJson, setRawJson] = useState<string>("");
     const [error, setError] = useState<string>("");
-    const [result, setResult] = useState<DecisionOutput | null>(null);
-    const [raw, setRaw] = useState<string>("");
 
-    const canSubmit = useMemo(() => {
-        return decision.trim() && optionA.trim() && optionB.trim();
-    }, [decision, optionA, optionB]);
+    const parsed: DecisionResponse | null = useMemo(() => {
+        if (!rawJson) return null;
+        try {
+            return JSON.parse(rawJson) as DecisionResponse;
+        } catch {
+            return null;
+        }
+    }, [rawJson]);
 
-    const analyze = async () => {
+    async function run() {
         setError("");
-        setResult(null);
-        setRaw("");
+        setRawJson("");
 
-        if (!canSubmit) {
-            setError("Please fill Decision, Option A, and Option B.");
+        if (!decision.trim() || !optionA.trim() || !optionB.trim()) {
+            setError("Please fill in Decision, Option A, and Option B.");
             return;
         }
 
         setLoading(true);
         try {
-            const payload = {
-                decision: decision.trim(),
-                optionA: optionA.trim(),
-                optionB: optionB.trim(),
-                userContext: userContext.trim(),
-                // criteria: optional (leave out for now)
-            };
-
-            const resp = await fetch(API_URL, {
+            const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({
+                    decision,
+                    optionA,
+                    optionB,
+                    userContext,
+                    // criteria: optional (you can add later)
+                }),
             });
 
-            const json = await resp.json();
+            const data = await res.json();
 
-            if (!resp.ok) {
-                // Your lambda returns {error: "...", details?: "..."}
-                throw new Error(json?.error || `HTTP ${resp.status}`);
+            if (!res.ok) {
+                setError(data?.error || `HTTP ${res.status}`);
+                return;
             }
 
-            // Your lambda returns: { output: { ...schema... } }
-            const output = json?.output as DecisionOutput | undefined;
-            if (!output) {
-                setRaw(JSON.stringify(json, null, 2));
-                throw new Error("No output returned from API.");
-            }
-
-            setResult(output);
-            setRaw(JSON.stringify(output, null, 2));
+            // Lambda returns: { output: <object> }
+            setRawJson(JSON.stringify(data.output, null, 2));
         } catch (e: any) {
-            setError(e?.message || "Unknown error");
+            setError(e?.message || "Network error");
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     return (
-        <div style={{ maxWidth: 900, margin: "40px auto", fontFamily: "sans-serif", padding: "0 16px" }}>
-            <h2>Decision Coach</h2>
-            <p style={{ opacity: 0.8 }}>
-                Describe the decision and compare Option A vs Option B. I’ll score each option and explain tradeoffs.
+        <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 900, margin: "40px auto", padding: 16 }}>
+            <h1 style={{ marginBottom: 6 }}>Decision Coach</h1>
+            <p style={{ marginTop: 0, opacity: 0.8 }}>
+                Compare Option A vs Option B with weighted criteria and a clear recommendation.
             </p>
 
-            <label>Decision</label>
-            <textarea
-                value={decision}
-                onChange={(e) => setDecision(e.target.value)}
-                placeholder='Example: "Should I accept job offer X or stay at my current job Y?"'
-                style={{ width: "100%", height: 70, marginBottom: 12 }}
-            />
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                    <label>Option A</label>
-                    <textarea
-                        value={optionA}
-                        onChange={(e) => setOptionA(e.target.value)}
-                        placeholder="Option A details..."
-                        style={{ width: "100%", height: 90 }}
+            <div style={{ display: "grid", gap: 12 }}>
+                <label>
+                    <div style={{ fontWeight: 600 }}>Decision</div>
+                    <input
+                        value={decision}
+                        onChange={(e) => setDecision(e.target.value)}
+                        placeholder="Example: Should I switch teams or stay in my current role?"
+                        style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
                     />
+                </label>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <label>
+                        <div style={{ fontWeight: 600 }}>Option A</div>
+                        <textarea
+                            value={optionA}
+                            onChange={(e) => setOptionA(e.target.value)}
+                            placeholder="Describe Option A"
+                            style={{ width: "100%", height: 90, padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
+                        />
+                    </label>
+                    <label>
+                        <div style={{ fontWeight: 600 }}>Option B</div>
+                        <textarea
+                            value={optionB}
+                            onChange={(e) => setOptionB(e.target.value)}
+                            placeholder="Describe Option B"
+                            style={{ width: "100%", height: 90, padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
+                        />
+                    </label>
                 </div>
-                <div>
-                    <label>Option B</label>
+
+                <label>
+                    <div style={{ fontWeight: 600 }}>Context (optional)</div>
                     <textarea
-                        value={optionB}
-                        onChange={(e) => setOptionB(e.target.value)}
-                        placeholder="Option B details..."
-                        style={{ width: "100%", height: 90 }}
+                        value={userContext}
+                        onChange={(e) => setUserContext(e.target.value)}
+                        placeholder="Budget, timeline, family constraints, career goals, risk tolerance, etc."
+                        style={{ width: "100%", height: 90, padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
                     />
-                </div>
-            </div>
+                </label>
 
-            <label style={{ display: "block", marginTop: 12 }}>Your context (optional)</label>
-            <textarea
-                value={userContext}
-                onChange={(e) => setUserContext(e.target.value)}
-                placeholder="Your constraints, priorities, timeline, budget, family situation, risk tolerance, etc."
-                style={{ width: "100%", height: 70, marginBottom: 12 }}
-            />
+                <button
+                    onClick={run}
+                    disabled={loading}
+                    style={{
+                        padding: "12px 14px",
+                        borderRadius: 10,
+                        border: "none",
+                        cursor: loading ? "not-allowed" : "pointer",
+                        background: "#4f46e5",
+                        color: "white",
+                        fontWeight: 700,
+                    }}
+                >
+                    {loading ? "Analyzing..." : "Analyze decision"}
+                </button>
 
-            <button onClick={analyze} disabled={loading} style={{ padding: "10px 14px", cursor: "pointer" }}>
-                {loading ? "Analyzing..." : "Analyze"}
-            </button>
+                {error && (
+                    <div style={{ padding: 12, borderRadius: 10, background: "#fee2e2", color: "#991b1b" }}>
+                        {error}
+                    </div>
+                )}
 
-            {error && (
-                <div style={{ marginTop: 12, padding: 12, border: "1px solid #f5a", borderRadius: 8 }}>
-                    <b>Error:</b> {error}
-                </div>
-            )}
+                {parsed && (
+                    <div style={{ padding: 14, borderRadius: 12, border: "1px solid #ddd" }}>
+                        <h2 style={{ marginTop: 0 }}>Recommendation: {parsed.recommendation}</h2>
+                        <p style={{ marginTop: 0 }}><b>Summary:</b> {parsed.one_line_summary}</p>
+                        <p style={{ marginTop: 0 }}>
+                            <b>Scores:</b> A = {parsed.scores.A} | B = {parsed.scores.B}
+                        </p>
 
-            {result && (
-                <div style={{ marginTop: 18 }}>
-                    <h3>Recommendation: {result.recommendation}</h3>
-                    <p><b>Summary:</b> {result.one_line_summary}</p>
-                    <p><b>Scores:</b> A = {result.scores.A} / B = {result.scores.B}</p>
-
-                    <h4>Breakdown</h4>
-                    <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                            <thead>
-                            <tr>
-                                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Criterion</th>
-                                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Weight</th>
-                                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>A</th>
-                                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>B</th>
-                                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Why</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {result.score_breakdown.map((row, idx) => (
-                                <tr key={idx}>
-                                    <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{row.criterion}</td>
-                                    <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{row.weight}</td>
-                                    <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{row.A_score}</td>
-                                    <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{row.B_score}</td>
-                                    <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{row.why}</td>
-                                </tr>
+                        <h3>Breakdown</h3>
+                        <ul>
+                            {parsed.score_breakdown.map((x, i) => (
+                                <li key={i} style={{ marginBottom: 8 }}>
+                                    <b>{x.criterion}</b> (weight {x.weight}) — A:{x.A_score} / B:{x.B_score}
+                                    <div style={{ opacity: 0.85 }}>{x.why}</div>
+                                </li>
                             ))}
-                            </tbody>
-                        </table>
-                    </div>
+                        </ul>
 
-                    <h4>Tradeoffs</h4>
-                    <ul>{result.tradeoffs.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                        <h3>Tradeoffs</h3>
+                        <ul>{parsed.tradeoffs.map((t, i) => <li key={i}>{t}</li>)}</ul>
 
-                    <h4>Risks</h4>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <div>
-                            <b>Option A</b>
-                            <ul>{result.risks.A.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                        <h3>Risks</h3>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <div>
+                                <b>Option A</b>
+                                <ul>{parsed.risks.A.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                            </div>
+                            <div>
+                                <b>Option B</b>
+                                <ul>{parsed.risks.B.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                            </div>
                         </div>
-                        <div>
-                            <b>Option B</b>
-                            <ul>{result.risks.B.map((r, i) => <li key={i}>{r}</li>)}</ul>
-                        </div>
+
+                        <h3>What would change my mind</h3>
+                        <ul>{parsed.what_would_change_my_mind.map((w, i) => <li key={i}>{w}</li>)}</ul>
+
+                        <h3>Follow-up questions</h3>
+                        <ul>{parsed.follow_up_questions.map((q, i) => <li key={i}>{q}</li>)}</ul>
                     </div>
+                )}
 
-                    <h4>What would change my mind?</h4>
-                    <ul>{result.what_would_change_my_mind.map((x, i) => <li key={i}>{x}</li>)}</ul>
-
-                    <h4>Follow-up questions</h4>
-                    <ul>{result.follow_up_questions.map((q, i) => <li key={i}>{q}</li>)}</ul>
-
-                    <details style={{ marginTop: 12 }}>
-                        <summary>Raw JSON</summary>
-                        <pre style={{ whiteSpace: "pre-wrap" }}>{raw}</pre>
+                {/* Raw output for debugging */}
+                {rawJson && (
+                    <details>
+                        <summary>Raw JSON output</summary>
+                        <pre style={{ whiteSpace: "pre-wrap", background: "#f6f6f6", padding: 12, borderRadius: 10 }}>
+              {rawJson}
+            </pre>
                     </details>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
 
-ReactDOM.createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(<App />);
