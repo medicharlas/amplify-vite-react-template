@@ -253,186 +253,70 @@ function App() {
       </div>
 
       {/* Main layout */}
-      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 14, alignItems: "start" }}>
-        {/* Left column: input + output */}
-        <div style={{ display: "grid", gap: 12 }}>
-          {/* Input */}
-          <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff" }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>1) Describe your dilemma</div>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={placeholder}
+      <div
+        style={{
+          marginTop: 14,
+          display: "grid",
+          gridTemplateColumns: "1.2fr 0.8fr",
+          gap: 14,
+          alignItems: "start",
+        }}
+      >
+        {/* Row 1, Col 1: Input */}
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff" }}>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>1) Describe your dilemma</div>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={placeholder}
+            style={{
+              width: "100%",
+              minHeight: 130,
+              border: "1px solid #d1d5db",
+              borderRadius: 12,
+              padding: 12,
+              resize: "vertical",
+            }}
+          />
+          <div style={{ display: "flex", gap: 10, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              onClick={send}
+              disabled={loading}
               style={{
-                width: "100%",
-                minHeight: 130,
-                border: "1px solid #d1d5db",
+                padding: "10px 14px",
                 borderRadius: 12,
-                padding: 12,
-                resize: "vertical",
+                border: "none",
+                background: loading ? "#9ca3af" : "#111827",
+                color: "#fff",
+                fontWeight: 800,
+                cursor: loading ? "not-allowed" : "pointer",
               }}
-            />
-            <div style={{ display: "flex", gap: 10, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <button
-                onClick={send}
-                disabled={loading}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: loading ? "#9ca3af" : "#111827",
-                  color: "#fff",
-                  fontWeight: 800,
-                  cursor: loading ? "not-allowed" : "pointer",
-                }}
-              >
-                {loading ? "Thinking…" : "Get recommendation"}
-              </button>
+            >
+              {loading ? "Thinking…" : "Get recommendation"}
+            </button>
 
-              <div style={{ color: "#6b7280", fontSize: 12 }}>
-                Tip: Include two options (e.g., “Option A … Option B …”) + 1–2 constraints (timeline/budget).
-              </div>
+            <div style={{ color: "#6b7280", fontSize: 12 }}>
+              Tip: Include two options (e.g., “Option A … Option B …”) + 1–2 constraints (timeline/budget).
             </div>
-
-            {error ? (
-              <div style={{ marginTop: 10, padding: 10, borderRadius: 12, border: "1px solid #fecaca", background: "#fff1f2", color: "#991b1b" }}>
-                <b>Error:</b> {error}
-              </div>
-            ) : null}
           </div>
 
-          {/* Output */}
-          {output ? (
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                <div style={{ fontSize: 18 }}>
-                  Recommendation: <b>{output.recommendation}</b>
-                </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <span style={confidenceStyle(output.confidence)}>
-                    Confidence: {output.confidence || "—"}
-                  </span>
-                  <span style={{ color: "#6b7280" }}>
-                    A {output.scores?.A ?? 0} • B {output.scores?.B ?? 0}
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 8 }}>{output.one_line_summary}</div>
-
-              {/* Goal #2: What would change my mind (highlighted) */}
-              {changeMind.length ? (
-                <div style={{ marginTop: 12, border: "1px solid #e5e7eb", background: "#f8fafc", borderRadius: 12, padding: 12 }}>
-                  <div style={{ fontWeight: 900, marginBottom: 6 }}>What would change this decision</div>
-                  <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {changeMind.map((x, i) => (
-                      <li key={i}>{x}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {/* Top reasons */}
-              {topReasons.length ? (
-                <>
-                  <div style={{ marginTop: 12, fontWeight: 900 }}>Top reasons</div>
-                  <ul style={{ marginTop: 6 }}>
-                    {topReasons.map((c, idx) => (
-                      <li key={idx}>
-                        <b>{c.criterion}</b>: {c.why}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-
-              {/* Follow-ups */}
-              {followUps.length ? (
-                <>
-                  <div style={{ marginTop: 10, fontWeight: 900 }}>Quick follow-ups</div>
-                  <ul style={{ marginTop: 6 }}>
-                    {followUps.map((q, i) => (
-                      <li key={i}>{q}</li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-
-              <button
-                onClick={() => setShowDetails((v) => !v)}
-                style={{
-                  marginTop: 10,
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  border: "1px solid #d1d5db",
-                  background: "#fff",
-                  cursor: "pointer",
-                  fontWeight: 700,
-                }}
-              >
-                {showDetails ? "Hide details" : "Show full breakdown"}
-              </button>
-
-              {showDetails ? (
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                  <div style={{ color: "#6b7280", fontSize: 12 }}>
-                    Sent as: <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}>{"{ prompt, mode }"}</span>
-                  </div>
-
-                  <div>
-                    <div style={{ fontWeight: 900 }}>Breakdown</div>
-                    <ul style={{ marginTop: 6 }}>
-                      {output.score_breakdown.map((c, idx) => (
-                        <li key={idx}>
-                          <b>{c.criterion}</b> (weight {c.weight}) — A {c.A_score} vs B {c.B_score}: {c.why}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div>
-                    <div style={{ fontWeight: 900 }}>Tradeoffs</div>
-                    <ul style={{ marginTop: 6 }}>
-                      {output.tradeoffs.map((t, i) => (
-                        <li key={i}>{t}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    <div>
-                      <div style={{ fontWeight: 900 }}>Risks (A)</div>
-                      <ul style={{ marginTop: 6 }}>
-                        {output.risks.A.map((r, i) => (
-                          <li key={i}>{r}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 900 }}>Risks (B)</div>
-                      <ul style={{ marginTop: 6 }}>
-                        {output.risks.B.map((r, i) => (
-                          <li key={i}>{r}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ fontWeight: 900 }}>What would change my mind</div>
-                    <ul style={{ marginTop: 6 }}>
-                      {output.what_would_change_my_mind.map((x, i) => (
-                        <li key={i}>{x}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : null}
+          {error ? (
+            <div
+              style={{
+                marginTop: 10,
+                padding: 10,
+                borderRadius: 12,
+                border: "1px solid #fecaca",
+                background: "#fff1f2",
+                color: "#991b1b",
+              }}
+            >
+              <b>Error:</b> {error}
             </div>
           ) : null}
         </div>
 
-        {/* Right column: History */}
+        {/* Row 1, Col 2: History */}
         <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
             <div style={{ fontWeight: 900 }}>Recent decisions</div>
@@ -480,7 +364,16 @@ function App() {
                     <div style={{ color: "#6b7280", fontSize: 12 }}>{formatTime(h.ts)}</div>
                   </div>
                   {h.summary ? <div style={{ marginTop: 6, color: "#111827" }}>{h.summary}</div> : null}
-                  <div style={{ marginTop: 6, color: "#6b7280", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      color: "#6b7280",
+                      fontSize: 12,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {h.prompt}
                   </div>
                 </button>
@@ -488,6 +381,145 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Row 2: Output (full width) */}
+        {output ? (
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              border: "1px solid #e5e7eb",
+              borderRadius: 14,
+              padding: 14,
+              background: "#fff",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ fontSize: 18 }}>
+                Recommendation: <b>{output.recommendation}</b>
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <span style={confidenceStyle(output.confidence)}>Confidence: {output.confidence || "—"}</span>
+                <span style={{ color: "#6b7280" }}>
+                  A {output.scores?.A ?? 0} • B {output.scores?.B ?? 0}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 8 }}>{output.one_line_summary}</div>
+
+            {/* Goal #2: What would change my mind (highlighted) */}
+            {changeMind.length ? (
+              <div style={{ marginTop: 12, border: "1px solid #e5e7eb", background: "#f8fafc", borderRadius: 12, padding: 12 }}>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>What would change this decision</div>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {changeMind.map((x, i) => (
+                    <li key={i}>{x}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* Top reasons */}
+            {topReasons.length ? (
+              <>
+                <div style={{ marginTop: 12, fontWeight: 900 }}>Top reasons</div>
+                <ul style={{ marginTop: 6 }}>
+                  {topReasons.map((c, idx) => (
+                    <li key={idx}>
+                      <b>{c.criterion}</b>: {c.why}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+
+            {/* Follow-ups */}
+            {followUps.length ? (
+              <>
+                <div style={{ marginTop: 10, fontWeight: 900 }}>Quick follow-ups</div>
+                <ul style={{ marginTop: 6 }}>
+                  {followUps.map((q, i) => (
+                    <li key={i}>{q}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+
+            <button
+              onClick={() => setShowDetails((v) => !v)}
+              style={{
+                marginTop: 10,
+                padding: "8px 10px",
+                borderRadius: 10,
+                border: "1px solid #d1d5db",
+                background: "#fff",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              {showDetails ? "Hide details" : "Show full breakdown"}
+            </button>
+
+            {showDetails ? (
+              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <div style={{ color: "#6b7280", fontSize: 12 }}>
+                  Sent as:{" "}
+                  <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}>
+                    {"{ prompt, mode }"}
+                  </span>
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 900 }}>Breakdown</div>
+                  <ul style={{ marginTop: 6 }}>
+                    {output.score_breakdown.map((c, idx) => (
+                      <li key={idx}>
+                        <b>{c.criterion}</b> (weight {c.weight}) — A {c.A_score} vs B {c.B_score}: {c.why}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 900 }}>Tradeoffs</div>
+                  <ul style={{ marginTop: 6 }}>
+                    {output.tradeoffs.map((t, i) => (
+                      <li key={i}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 900 }}>Risks (A)</div>
+                    <ul style={{ marginTop: 6 }}>
+                      {output.risks.A.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 900 }}>Risks (B)</div>
+                    <ul style={{ marginTop: 6 }}>
+                      {output.risks.B.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 900 }}>What would change my mind</div>
+                  <ul style={{ marginTop: 6 }}>
+                    {output.what_would_change_my_mind.map((x, i) => (
+                      <li key={i}>{x}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div style={{ marginTop: 12, color: "#6b7280", fontSize: 12 }}>
