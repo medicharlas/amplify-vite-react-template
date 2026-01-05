@@ -257,14 +257,15 @@ function App() {
         style={{
           marginTop: 14,
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
           gridAutoRows: "min-content",
           gap: 14,
           alignItems: "start",
+          width: "100%",
         }}
       >
         {/* Row 1, Col 1: Input */}
-        <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff" }}>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff", minWidth: 0 }}>
           <div style={{ fontWeight: 800, marginBottom: 8 }}>1) Describe your dilemma</div>
           <textarea
             value={prompt}
@@ -318,7 +319,7 @@ function App() {
         </div>
 
         {/* Row 1, Col 2: History */}
-        <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff" }}>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff", minWidth: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
             <div style={{ fontWeight: 900 }}>Recent decisions</div>
             <button
@@ -331,6 +332,7 @@ function App() {
                 background: history.length ? "#fff" : "#f3f4f6",
                 cursor: history.length ? "pointer" : "not-allowed",
                 fontWeight: 700,
+                color: history.length ? "#0f172a" : "#6b7280",
               }}
               title="Clear saved decisions"
             >
@@ -364,7 +366,9 @@ function App() {
                     </div>
                     <div style={{ color: "#6b7280", fontSize: 12 }}>{formatTime(h.ts)}</div>
                   </div>
-                  {h.summary ? <div style={{ marginTop: 6, color: "#111827" }}>{h.summary}</div> : null}
+                  {h.summary ? (
+                    <div style={{ marginTop: 6, color: "#111827", wordBreak: "break-word" }}>{h.summary}</div>
+                  ) : null}
                   <div
                     style={{
                       marginTop: 6,
@@ -372,7 +376,8 @@ function App() {
                       fontSize: 12,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      whiteSpace: "normal",
+                      wordBreak: "break-word",
                     }}
                   >
                     {h.prompt}
@@ -453,9 +458,10 @@ function App() {
                 padding: "8px 10px",
                 borderRadius: 10,
                 border: "1px solid #d1d5db",
-                background: "#fff",
+                background: "#f8fafc",
                 cursor: "pointer",
                 fontWeight: 700,
+                color: "#0f172a",
               }}
             >
               {showDetails ? "Hide details" : "Show full breakdown"}
