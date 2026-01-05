@@ -27,8 +27,10 @@ function App() {
     const [error, setError] = useState("");
     const [output, setOutput] = useState<DecisionResponse | null>(null);
 
-    function useExample() {
-        setPrompt("I’m deciding between Northern India and Singapore for a 7-day vacation from Hyderabad. Budget is $10,000. I like food, shopping, and easy travel with family.");
+    function tryExample() {
+        setPrompt(
+            "I’m deciding between Northern India and Singapore for a 7-day vacation from Hyderabad. Budget is $10,000. I like food, shopping, and easy travel with family."
+        );
         setOutput(null);
         setError("");
     }
@@ -39,7 +41,7 @@ function App() {
 
         const p = prompt.trim();
         if (!p) {
-            setError("Type your dilemma first.");
+            setError("Type your dilemma first (include two options if possible).");
             return;
         }
 
@@ -63,29 +65,73 @@ function App() {
     }
 
     return (
-        <div style={{ maxWidth: 760, margin: "32px auto", padding: 16, fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div
+            style={{
+                maxWidth: 760,
+                margin: "32px auto",
+                padding: 16,
+                fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+            }}
+        >
+            {/* Header */}
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                }}
+            >
                 <div>
                     <h2 style={{ margin: 0 }}>Decision Coach</h2>
-                    <div style={{ color: "#6b7280" }}>
+                    <div style={{ color: "#6b7280", marginTop: 4 }}>
                         Type your dilemma naturally. Example: “India or Singapore for vacation, budget $10k…”
                     </div>
                 </div>
+
+                {/* Readable secondary button */}
                 <button
-                    onClick={useExample}
-                    style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" }}
+                    onClick={tryExample}
+                    style={{
+                        padding: "10px 14px",
+                        borderRadius: 12,
+                        border: "1px solid #cbd5e1",
+                        background: "#f8fafc",
+                        color: "#0f172a",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                    }}
+                    title="Fill the textbox with a sample decision prompt"
                 >
-                    Use example
+                    Try an example
                 </button>
             </div>
 
-            <div style={{ marginTop: 14, border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff" }}>
+            {/* Input box */}
+            <div
+                style={{
+                    marginTop: 14,
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 14,
+                    padding: 12,
+                    background: "#fff",
+                }}
+            >
         <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Type your dilemma here… (include two options if possible)"
-            style={{ width: "100%", minHeight: 120, border: "1px solid #d1d5db", borderRadius: 12, padding: 12, resize: "vertical" }}
+            style={{
+                width: "100%",
+                minHeight: 120,
+                border: "1px solid #d1d5db",
+                borderRadius: 12,
+                padding: 12,
+                resize: "vertical",
+            }}
         />
+
                 <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
                     <button
                         onClick={send}
@@ -96,6 +142,7 @@ function App() {
                             border: "none",
                             background: loading ? "#9ca3af" : "#111827",
                             color: "#fff",
+                            fontWeight: 700,
                             cursor: loading ? "not-allowed" : "pointer",
                         }}
                     >
@@ -104,14 +151,32 @@ function App() {
                 </div>
 
                 {error ? (
-                    <div style={{ marginTop: 10, padding: 10, borderRadius: 12, border: "1px solid #fecaca", background: "#fff1f2", color: "#991b1b" }}>
+                    <div
+                        style={{
+                            marginTop: 10,
+                            padding: 10,
+                            borderRadius: 12,
+                            border: "1px solid #fecaca",
+                            background: "#fff1f2",
+                            color: "#991b1b",
+                        }}
+                    >
                         {error}
                     </div>
                 ) : null}
             </div>
 
+            {/* Output */}
             {output ? (
-                <div style={{ marginTop: 14, border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, background: "#fff" }}>
+                <div
+                    style={{
+                        marginTop: 14,
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 14,
+                        padding: 14,
+                        background: "#fff",
+                    }}
+                >
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                         <div style={{ fontSize: 18 }}>
                             Recommendation: <b>{output.recommendation}</b>
