@@ -85,7 +85,7 @@ function App() {
             >
                 <div>
                     <h2 style={{ margin: 0 }}>Decision Coach</h2>
-                    <div style={{ color: "#6b7280", marginTop: 4 }}>
+                    <div style={{ color: "#374151", marginTop: 4, fontWeight: 500 }}>
                         Type your dilemma naturally. Example: “India or Singapore for vacation, budget $10k…”
                     </div>
                 </div>
