@@ -257,7 +257,8 @@ function App() {
         style={{
           marginTop: 14,
           display: "grid",
-          gridTemplateColumns: "1.2fr 0.8fr",
+          gridTemplateColumns: "1fr 1fr",
+          gridAutoRows: "min-content",
           gap: 14,
           alignItems: "start",
         }}
