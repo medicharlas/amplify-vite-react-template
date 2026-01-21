@@ -242,16 +242,23 @@ export default function App() {
                         onClick={() => setShowReasoning((v) => !v)}
                         style={{
                             marginTop: 14,
-                            padding: "8px 12px",
+                            padding: "8px 14px",
                             borderRadius: 10,
                             border: "1px solid #d1d5db",
-                            background: "#f9fafb",
+                            background: "#f3f4f6",
+                            color: "#111827",          // ✅ force readable text
                             fontWeight: 700,
+                            cursor: "pointer",
+                        }}
+                        onMouseOver={(e) => {
+                            e.currentTarget.style.background = "#e5e7eb";
+                        }}
+                        onMouseOut={(e) => {
+                            e.currentTarget.style.background = "#f3f4f6";
                         }}
                     >
                         {showReasoning ? "Hide reasoning" : "Show reasoning"}
                     </button>
-
                     {showReasoning && (
                         <div style={{ marginTop: 14, color: "#0f172a" }}>
                             <h4>What could change your mind</h4>
