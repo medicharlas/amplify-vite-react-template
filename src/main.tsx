@@ -70,15 +70,23 @@ function clamp(n: number, min = 0, max = 100) {
 }
 
 function encodeState(state: { mode: Mode; explain: Explain; prompt: string }) {
-    // base64 url-safe
+    // base64 url-safe (no replaceAll so it works with older TS targets)
     const json = JSON.stringify(state);
     const b64 = btoa(unescape(encodeURIComponent(json)));
-    return b64.replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+
+    return b64
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
 }
 
 function decodeState(b64url: string) {
     try {
-        const b64 = b64url.replaceAll("-", "+").replaceAll("_", "/") + "===".slice((b64url.length + 3) % 4);
+        const b64 = b64url
+            .replace(/-/g, "+")
+            .replace(/_/g, "/")
+            .padEnd(b64url.length + ((4 - (b64url.length % 4)) % 4), "=");
+
         const json = decodeURIComponent(escape(atob(b64)));
         return JSON.parse(json) as { mode: Mode; explain: Explain; prompt: string };
     } catch {
