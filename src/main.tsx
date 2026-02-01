@@ -8,7 +8,6 @@ type Output = {
     recommendation: "A" | "B" | "Tie";
     confidence: "High" | "Medium" | "Low";
     decision_score: number;
-    one_line_summary: string;
     simple_summary: string;
     why_this_works: string[];
     risks: string[];
@@ -21,35 +20,22 @@ type DualOutput = {
     bold: Output;
 };
 
-function Badge({ text }: { text: string }) {
-    return (
-        <span
-            style={{
-                display: "inline-block",
-                padding: "4px 10px",
-                borderRadius: 999,
-                border: "1px solid #d1d5db",
-                background: "#f9fafb",
-                fontWeight: 800,
-                fontSize: 12,
-                color: "#111827",
-            }}
-        >
-      {text}
-    </span>
-    );
-}
-
 function Meter({ value }: { value: number }) {
     const v = Math.max(0, Math.min(100, value));
     return (
         <div style={{ marginTop: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#374151" }}>
-                <span>Decision score</span>
-                <span style={{ fontWeight: 900, color: "#111827" }}>{v}/100</span>
+            <div style={{ fontSize: 12, color: "#374151" }}>
+                Decision confidence: <b>{v}/100</b>
             </div>
-            <div style={{ height: 10, background: "#e5e7eb", borderRadius: 999, overflow: "hidden", marginTop: 6 }}>
-                <div style={{ width: `${v}%`, height: "100%", background: "#111827" }} />
+            <div style={{ height: 8, background: "#e5e7eb", borderRadius: 999 }}>
+                <div
+                    style={{
+                        width: `${v}%`,
+                        height: "100%",
+                        background: "#111827",
+                        borderRadius: 999,
+                    }}
+                />
             </div>
         </div>
     );
@@ -71,91 +57,122 @@ function ResultCard({
             style={{
                 border: "1px solid #e5e7eb",
                 borderRadius: 14,
-                padding: 14,
+                padding: 16,
                 background: "#fff",
                 minWidth: 0,
             }}
         >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <div>
-                    <div style={{ fontSize: 18, fontWeight: 900 }}>{title}</div>
-                    <div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>{subtitle}</div>
-                </div>
-                <Badge text={`Confidence: ${data.confidence}`} />
+            <h3 style={{ marginBottom: 4 }}>{title}</h3>
+            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>
+                {subtitle}
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 16 }}>
-                Recommendation: <b>{data.recommendation}</b>
+            <div style={{ fontSize: 16 }}>
+                <b>Recommendation:</b> {data.recommendation}
             </div>
-            <div style={{ marginTop: 6, color: "#111827" }}>{data.simple_summary}</div>
+            <p style={{ marginTop: 6 }}>{data.simple_summary}</p>
 
             <Meter value={data.decision_score} />
 
+            <div style={{ marginTop: 6 }}>
+                Confidence: <b>{data.confidence}</b>
+            </div>
+
             <button
-                onClick={() => setOpen((v) => !v)}
+                onClick={() => setOpen(!open)}
                 style={{
                     marginTop: 12,
                     padding: "8px 12px",
-                    borderRadius: 10,
+                    borderRadius: 8,
                     border: "1px solid #d1d5db",
                     background: "#f3f4f6",
                     color: "#111827",
-                    fontWeight: 800,
+                    fontWeight: 600,
                     cursor: "pointer",
                 }}
             >
                 {open ? "Hide reasoning" : "Show reasoning"}
             </button>
 
-            {open ? (
-                <div style={{ marginTop: 12, color: "#0f172a" }}>
-                    <div style={{ fontWeight: 900, marginTop: 8 }}>Why this works</div>
-                    <ul style={{ marginTop: 6 }}>
+            {open && (
+                <div style={{ marginTop: 12 }}>
+                    <h4>Why this works</h4>
+                    <ul>
                         {data.why_this_works.map((x, i) => (
-                            <li key={i} style={{ lineHeight: 1.5 }}>
-                                {x}
-                            </li>
+                            <li key={i}>{x}</li>
                         ))}
                     </ul>
 
-                    <div style={{ fontWeight: 900, marginTop: 10 }}>Risks</div>
-                    <ul style={{ marginTop: 6 }}>
+                    <h4>Risks</h4>
+                    <ul>
                         {data.risks.map((x, i) => (
-                            <li key={i} style={{ lineHeight: 1.5 }}>
-                                {x}
-                            </li>
+                            <li key={i}>{x}</li>
                         ))}
                     </ul>
 
-                    <div style={{ fontWeight: 900, marginTop: 10 }}>What could change your mind</div>
-                    <ul style={{ marginTop: 6 }}>
+                    <h4>What could change your mind</h4>
+                    <ul>
                         {data.what_would_change_my_mind.map((x, i) => (
-                            <li key={i} style={{ lineHeight: 1.5 }}>
-                                {x}
-                            </li>
+                            <li key={i}>{x}</li>
                         ))}
                     </ul>
 
-                    <div style={{ fontWeight: 900, marginTop: 10 }}>One question to ask</div>
-                    <div style={{ marginTop: 6 }}>{data.follow_up_question}</div>
+                    <h4>Question to think about</h4>
+                    <p>{data.follow_up_question}</p>
                 </div>
-            ) : null}
+            )}
         </div>
+    );
+}
+
+function FAQ() {
+    return (
+        <section
+            style={{
+                maxWidth: 900,
+                margin: "80px auto 40px",
+                padding: "0 16px",
+                fontSize: 15,
+            }}
+        >
+            <h2 style={{ marginBottom: 16 }}>Common questions</h2>
+
+            <p>
+                <strong>What does this website do?</strong>
+                <br />
+                Decision Coach helps you choose between two options by showing how
+                different mindsets (safe vs bold) approach the same decision.
+            </p>
+
+            <p>
+                <strong>Is this a chatbot like ChatGPT?</strong>
+                <br />
+                No. This tool is focused on structured decision-making, not open-ended
+                conversation. It highlights tradeoffs clearly.
+            </p>
+
+            <p>
+                <strong>What decisions work best here?</strong>
+                <br />
+                Career moves, job switches, money choices, travel plans, and any situation
+                where you’re stuck between two options.
+            </p>
+        </section>
     );
 }
 
 function App() {
     const [prompt, setPrompt] = useState("");
     const [loading, setLoading] = useState(false);
-    const [out, setOut] = useState<DualOutput | null>(null);
+    const [output, setOutput] = useState<DualOutput | null>(null);
     const [error, setError] = useState("");
 
     async function submit() {
         setError("");
-        setOut(null);
+        setOutput(null);
 
         if (!prompt.trim()) {
-            setError("Please type your dilemma.");
+            setError("Please describe your dilemma.");
             return;
         }
 
@@ -168,80 +185,93 @@ function App() {
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+            if (!res.ok) throw new Error(data?.error || "Request failed");
 
-            setOut(data.output as DualOutput);
+            setOutput(data.output as DualOutput);
         } catch (e: any) {
-            setError(e?.message || "Unknown error");
+            setError(e.message || "Something went wrong");
         } finally {
             setLoading(false);
         }
     }
 
     return (
-        <div
-            style={{
-                maxWidth: 1000,
-                margin: "30px auto",
-                padding: 16,
-                fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-            }}
-        >
-            <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ fontSize: 30, fontWeight: 900 }}>Decision Coach</div>
-                <div style={{ color: "#374151" }}>
-                    Stuck between two choices? See what a <b>safe</b> mindset and a <b>bold</b> mindset would recommend..
-                </div>
-            </div>
-
-            <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Example: Switch teams or stay? Option A: long commute, known team. Option B: short commute, unknown growth. Constraints: family time matters."
+        <>
+            <div
                 style={{
-                    width: "100%",
-                    minHeight: 130,
-                    marginTop: 14,
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #d1d5db",
-                }}
-            />
-
-            <button
-                onClick={submit}
-                disabled={loading}
-                style={{
-                    marginTop: 12,
-                    padding: "10px 16px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: "#111827",
-                    color: "#fff",
-                    fontWeight: 900,
-                    cursor: loading ? "not-allowed" : "pointer",
+                    maxWidth: 1000,
+                    margin: "40px auto",
+                    padding: 16,
+                    fontFamily:
+                        "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
                 }}
             >
-                {loading ? "Comparing…" : "Compare styles"}
-            </button>
+                <h1>Decision Coach</h1>
+                <p style={{ color: "#374151" }}>
+                    Stuck between two choices? See what a <b>safe</b> mindset and a <b>bold</b> mindset would recommend..
 
-            {error ? <div style={{ marginTop: 10, color: "#b91c1c", fontWeight: 700 }}>{error}</div> : null}
+                </p>
 
-            {out ? (
-                <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 14 }}>
-                    <ResultCard
-                        title="Practical & safe"
-                        subtitle="Minimize regret, protect downside."
-                        data={out.practical}
-                    />
-                    <ResultCard
-                        title="Bold & growth-oriented"
-                        subtitle="Optimize upside, accept uncertainty."
-                        data={out.bold}
-                    />
-                </div>
-            ) : null}
-        </div>
+                <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder={'Example: Switch teams or stay? Option A: long commute, known team. Option B: short commute, unknown growth. Constraints: family time matters.\n'}
+                    style={{
+                        width: "100%",
+                        minHeight: 140,
+                        padding: 12,
+                        borderRadius: 10,
+                        border: "1px solid #d1d5db",
+                        marginTop: 12,
+                    }}
+                />
+
+                <button
+                    onClick={submit}
+                    disabled={loading}
+                    style={{
+                        marginTop: 12,
+                        padding: "10px 16px",
+                        borderRadius: 10,
+                        background: "#111827",
+                        color: "#fff",
+                        border: "none",
+                        fontWeight: 700,
+                        cursor: loading ? "not-allowed" : "pointer",
+                    }}
+                >
+                    {loading ? "Comparing advice…" : "Get advice (safe vs bold)"}
+                </button>
+
+                {error && (
+                    <div style={{ marginTop: 10, color: "#b91c1c" }}>{error}</div>
+                )}
+
+                {output && (
+                    <div
+                        style={{
+                            marginTop: 20,
+                            display: "grid",
+                            gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)",
+                            gap: 16,
+                        }}
+                    >
+                        <ResultCard
+                            title="Practical & Safe"
+                            subtitle="Minimize regret and protect stability"
+                            data={output.practical}
+                        />
+                        <ResultCard
+                            title="Bold & Growth-Oriented"
+                            subtitle="Optimize upside and accept uncertainty"
+                            data={output.bold}
+                        />
+                    </div>
+                )}
+            </div>
+
+            <FAQ />
+        </>
     );
 }
 
