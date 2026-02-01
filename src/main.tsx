@@ -1,98 +1,178 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 
 const API_URL = "https://l93d45v2bl.execute-api.us-east-1.amazonaws.com/prod/";
 
-type Mode = "career" | "money";
-type Explain = "simple" | "normal";
-type Confidence = "High" | "Medium" | "Low";
-
-type DecisionResponse = {
+type Output = {
     recommendation: "A" | "B" | "Tie";
-    confidence: Confidence;
+    confidence: "High" | "Medium" | "Low";
     decision_score: number;
     one_line_summary: string;
     simple_summary: string;
-    score_breakdown: Array<{
-        criterion: string;
-        weight: number;
-        A_score: number;
-        B_score: number;
-        why: string;
-    }>;
+    why_this_works: string[];
+    risks: string[];
     what_would_change_my_mind: string[];
-    follow_up_questions: string[];
+    follow_up_question: string;
 };
 
-function Meter({ value }: { value: number }) {
-    const pct = Math.max(0, Math.min(100, value));
+type DualOutput = {
+    practical: Output;
+    bold: Output;
+};
+
+function Badge({ text }: { text: string }) {
     return (
-        <div style={{ maxWidth: 300 }}>
-            <div style={{ fontSize: 12, color: "#374151" }}>
-                Decision score <b>{pct}/100</b>
+        <span
+            style={{
+                display: "inline-block",
+                padding: "4px 10px",
+                borderRadius: 999,
+                border: "1px solid #d1d5db",
+                background: "#f9fafb",
+                fontWeight: 800,
+                fontSize: 12,
+                color: "#111827",
+            }}
+        >
+      {text}
+    </span>
+    );
+}
+
+function Meter({ value }: { value: number }) {
+    const v = Math.max(0, Math.min(100, value));
+    return (
+        <div style={{ marginTop: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#374151" }}>
+                <span>Decision score</span>
+                <span style={{ fontWeight: 900, color: "#111827" }}>{v}/100</span>
             </div>
-            <div style={{ height: 10, background: "#e5e7eb", borderRadius: 999 }}>
-                <div
-                    style={{
-                        width: `${pct}%`,
-                        height: "100%",
-                        background: "#111827",
-                        borderRadius: 999,
-                    }}
-                />
+            <div style={{ height: 10, background: "#e5e7eb", borderRadius: 999, overflow: "hidden", marginTop: 6 }}>
+                <div style={{ width: `${v}%`, height: "100%", background: "#111827" }} />
             </div>
         </div>
     );
 }
 
-export default function App() {
-    const [mode, setMode] = useState<Mode>("career");
-    const [explain, setExplain] = useState<Explain>("simple");
-    const [prompt, setPrompt] = useState("");
+function ResultCard({
+                        title,
+                        subtitle,
+                        data,
+                    }: {
+    title: string;
+    subtitle: string;
+    data: Output;
+}) {
+    const [open, setOpen] = useState(false);
 
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [output, setOutput] = useState<DecisionResponse | null>(null);
-    const [showReasoning, setShowReasoning] = useState(false);
+    return (
+        <div
+            style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 14,
+                padding: 14,
+                background: "#fff",
+                minWidth: 0,
+            }}
+        >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <div>
+                    <div style={{ fontSize: 18, fontWeight: 900 }}>{title}</div>
+                    <div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>{subtitle}</div>
+                </div>
+                <Badge text={`Confidence: ${data.confidence}`} />
+            </div>
 
-    useEffect(() => {
-        document.body.style.overflow = "auto";
-        document.documentElement.style.overflow = "auto";
-    }, []);
+            <div style={{ marginTop: 10, fontSize: 16 }}>
+                Recommendation: <b>{data.recommendation}</b>
+            </div>
+            <div style={{ marginTop: 6, color: "#111827" }}>{data.simple_summary}</div>
 
-    const placeholder = useMemo(
-        () =>
-            mode === "career"
-                ? "Example: Switch teams or stay? Option A: switch. Option B: stay. Context: promotion timeline, work-life balance."
-                : "Example: Invest or save? Option A: invest in index fund. Option B: keep in savings. Context: medium risk, 3–5 years.",
-        [mode]
+            <Meter value={data.decision_score} />
+
+            <button
+                onClick={() => setOpen((v) => !v)}
+                style={{
+                    marginTop: 12,
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #d1d5db",
+                    background: "#f3f4f6",
+                    color: "#111827",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                }}
+            >
+                {open ? "Hide reasoning" : "Show reasoning"}
+            </button>
+
+            {open ? (
+                <div style={{ marginTop: 12, color: "#0f172a" }}>
+                    <div style={{ fontWeight: 900, marginTop: 8 }}>Why this works</div>
+                    <ul style={{ marginTop: 6 }}>
+                        {data.why_this_works.map((x, i) => (
+                            <li key={i} style={{ lineHeight: 1.5 }}>
+                                {x}
+                            </li>
+                        ))}
+                    </ul>
+
+                    <div style={{ fontWeight: 900, marginTop: 10 }}>Risks</div>
+                    <ul style={{ marginTop: 6 }}>
+                        {data.risks.map((x, i) => (
+                            <li key={i} style={{ lineHeight: 1.5 }}>
+                                {x}
+                            </li>
+                        ))}
+                    </ul>
+
+                    <div style={{ fontWeight: 900, marginTop: 10 }}>What could change your mind</div>
+                    <ul style={{ marginTop: 6 }}>
+                        {data.what_would_change_my_mind.map((x, i) => (
+                            <li key={i} style={{ lineHeight: 1.5 }}>
+                                {x}
+                            </li>
+                        ))}
+                    </ul>
+
+                    <div style={{ fontWeight: 900, marginTop: 10 }}>One question to ask</div>
+                    <div style={{ marginTop: 6 }}>{data.follow_up_question}</div>
+                </div>
+            ) : null}
+        </div>
     );
+}
+
+function App() {
+    const [prompt, setPrompt] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [out, setOut] = useState<DualOutput | null>(null);
+    const [error, setError] = useState("");
 
     async function submit() {
         setError("");
-        setOutput(null);
-        setShowReasoning(false);
+        setOut(null);
 
         if (!prompt.trim()) {
-            setError("Please describe your dilemma.");
+            setError("Please type your dilemma.");
             return;
         }
 
         setLoading(true);
         try {
-            const resp = await fetch(API_URL, {
+            const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt, mode, explain }),
+                body: JSON.stringify({ prompt }),
             });
 
-            const data = await resp.json();
-            if (!resp.ok) throw new Error(data?.error || "Request failed");
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
 
-            setOutput(data.output);
+            setOut(data.output as DualOutput);
         } catch (e: any) {
-            setError(e.message || "Something went wrong");
+            setError(e?.message || "Unknown error");
         } finally {
             setLoading(false);
         }
@@ -101,183 +181,66 @@ export default function App() {
     return (
         <div
             style={{
-                maxWidth: 900,
+                maxWidth: 1000,
                 margin: "30px auto",
                 padding: 16,
-                fontFamily:
-                    "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+                fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
             }}
         >
-            {/* Header */}
-            <h1 style={{ fontSize: 32, marginBottom: 4 }}>Decision Coach</h1>
-            <p style={{ color: "#374151", marginBottom: 16 }}>
-                Clear, opinionated help for career & money decisions.
-            </p>
-
-            {/* Controls */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                <button
-                    onClick={() => setMode("career")}
-                    style={{
-                        padding: "8px 14px",
-                        borderRadius: 999,
-                        border: "1px solid #d1d5db",
-                        background: mode === "career" ? "#111827" : "#fff",
-                        color: mode === "career" ? "#fff" : "#111827",
-                        fontWeight: 700,
-                    }}
-                >
-                    Career
-                </button>
-                <button
-                    onClick={() => setMode("money")}
-                    style={{
-                        padding: "8px 14px",
-                        borderRadius: 999,
-                        border: "1px solid #d1d5db",
-                        background: mode === "money" ? "#111827" : "#fff",
-                        color: mode === "money" ? "#fff" : "#111827",
-                        fontWeight: 700,
-                    }}
-                >
-                    Money
-                </button>
-
-                <label style={{ marginLeft: 12, fontSize: 14 }}>
-                    <input
-                        type="checkbox"
-                        checked={explain === "simple"}
-                        onChange={(e) =>
-                            setExplain(e.target.checked ? "simple" : "normal")
-                        }
-                    />{" "}
-                    Explain simply
-                </label>
+            <div style={{ display: "grid", gap: 6 }}>
+                <div style={{ fontSize: 30, fontWeight: 900 }}>Decision Coach</div>
+                <div style={{ color: "#374151" }}>
+                    Stuck between two choices? See what a <b>safe</b> mindset and a <b>bold</b> mindset would recommend..
+                </div>
             </div>
 
-            {/* Input */}
             <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder={placeholder}
+                placeholder="Example: Switch teams or stay? Option A: long commute, known team. Option B: short commute, unknown growth. Constraints: family time matters."
                 style={{
                     width: "100%",
-                    minHeight: 120,
+                    minHeight: 130,
+                    marginTop: 14,
                     padding: 12,
                     borderRadius: 12,
                     border: "1px solid #d1d5db",
                 }}
             />
 
-            <div style={{ marginTop: 10 }}>
-                <button
-                    onClick={submit}
-                    disabled={loading}
-                    style={{
-                        padding: "10px 16px",
-                        borderRadius: 12,
-                        border: "none",
-                        background: "#111827",
-                        color: "#fff",
-                        fontWeight: 800,
-                    }}
-                >
-                    {loading ? "Thinking…" : "Get recommendation"}
-                </button>
-            </div>
+            <button
+                onClick={submit}
+                disabled={loading}
+                style={{
+                    marginTop: 12,
+                    padding: "10px 16px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: "#111827",
+                    color: "#fff",
+                    fontWeight: 900,
+                    cursor: loading ? "not-allowed" : "pointer",
+                }}
+            >
+                {loading ? "Comparing…" : "Compare styles"}
+            </button>
 
-            {error && (
-                <div
-                    style={{
-                        marginTop: 12,
-                        padding: 10,
-                        background: "#fee2e2",
-                        color: "#991b1b",
-                        borderRadius: 8,
-                    }}
-                >
-                    {error}
+            {error ? <div style={{ marginTop: 10, color: "#b91c1c", fontWeight: 700 }}>{error}</div> : null}
+
+            {out ? (
+                <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 14 }}>
+                    <ResultCard
+                        title="Practical & safe"
+                        subtitle="Minimize regret, protect downside."
+                        data={out.practical}
+                    />
+                    <ResultCard
+                        title="Bold & growth-oriented"
+                        subtitle="Optimize upside, accept uncertainty."
+                        data={out.bold}
+                    />
                 </div>
-            )}
-
-            {/* Output */}
-            {output && (
-                <div
-                    style={{
-                        marginTop: 20,
-                        background: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 14,
-                        padding: 16,
-                    }}
-                >
-                    <h2 style={{ marginBottom: 6 }}>
-                        Recommendation: <b>{output.recommendation}</b>
-                    </h2>
-
-                    <p style={{ color: "#111827" }}>
-                        {explain === "simple"
-                            ? output.simple_summary
-                            : output.one_line_summary}
-                    </p>
-
-                    <div style={{ marginTop: 10 }}>
-                        <Meter value={output.decision_score} />
-                        <div
-                            style={{
-                                marginTop: 6,
-                                display: "inline-block",
-                                padding: "4px 10px",
-                                borderRadius: 999,
-                                border: "1px solid #d1d5db",
-                                background: "#f9fafb",
-                                fontWeight: 700,
-                            }}
-                        >
-                            Confidence: {output.confidence}
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={() => setShowReasoning((v) => !v)}
-                        style={{
-                            marginTop: 14,
-                            padding: "8px 14px",
-                            borderRadius: 10,
-                            border: "1px solid #d1d5db",
-                            background: "#f3f4f6",
-                            color: "#111827",          // ✅ force readable text
-                            fontWeight: 700,
-                            cursor: "pointer",
-                        }}
-                        onMouseOver={(e) => {
-                            e.currentTarget.style.background = "#e5e7eb";
-                        }}
-                        onMouseOut={(e) => {
-                            e.currentTarget.style.background = "#f3f4f6";
-                        }}
-                    >
-                        {showReasoning ? "Hide reasoning" : "Show reasoning"}
-                    </button>
-                    {showReasoning && (
-                        <div style={{ marginTop: 14, color: "#0f172a" }}>
-                            <h4>What could change your mind</h4>
-                            <ul>
-                                {output.what_would_change_my_mind.map((x, i) => (
-                                    <li key={i}>{x}</li>
-                                ))}
-                            </ul>
-
-                            <h4 style={{ marginTop: 12 }}>Follow-up questions</h4>
-                            <ul>
-                                {output.follow_up_questions.map((q, i) => (
-                                    <li key={i}>{q}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            )}
+            ) : null}
         </div>
     );
 }
